@@ -17,6 +17,8 @@ const DocumentsList = () => {
     endDate: "",
     fyFilter: ""
   });
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   const getCurrentFY = () => {
     const today = new Date();
@@ -168,17 +170,16 @@ const DocumentsList = () => {
       
       for (const image of document.images || []) {
         try {
-          const response = await fetch(image.image_url);
+          const response = await fetch(image.image_url, { mode: 'cors' });
+          if (!response.ok) throw new Error('Failed to fetch image');
           const blob = await response.blob();
           
-          const reader = new FileReader();
-          await new Promise((resolve, reject) => {
-            reader.onloadend = () => resolve();
+          const imgData = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
             reader.onerror = reject;
             reader.readAsDataURL(blob);
           });
-          
-          const imgData = reader.result;
           
           if (yPosition > 200) {
             doc.addPage();
@@ -193,11 +194,6 @@ const DocumentsList = () => {
           
         } catch (error) {
           console.error('Failed to load image:', error);
-          doc.setFontSize(9);
-          doc.setTextColor(100, 100, 100);
-          doc.text(`Image: ${image.image_url}`, 14, yPosition);
-          yPosition += 6;
-          doc.setTextColor(0, 0, 0);
         }
       }
       
@@ -208,6 +204,28 @@ const DocumentsList = () => {
     }
 
     doc.save(`documents-${new Date().getTime()}.pdf`);
+  };
+
+  const openImageModal = (doc) => {
+    setSelectedDocument(doc);
+    setCurrentImageIndex(0);
+  };
+
+  const closeImageModal = () => {
+    setSelectedDocument(null);
+    setCurrentImageIndex(0);
+  };
+
+  const nextImage = () => {
+    if (selectedDocument && currentImageIndex < selectedDocument.images.length - 1) {
+      setCurrentImageIndex(currentImageIndex + 1);
+    }
+  };
+
+  const previousImage = () => {
+    if (currentImageIndex > 0) {
+      setCurrentImageIndex(currentImageIndex - 1);
+    }
   };
 
   return (
@@ -381,7 +399,7 @@ const DocumentsList = () => {
                       </td>
                       <td className="px-6 py-4 text-sm">
                         <button
-                          onClick={() => window.open(doc.images[0]?.image_url, '_blank')}
+                          onClick={() => openImageModal(doc)}
                           disabled={doc.images.length === 0}
                           className="text-blue-600 hover:text-blue-800 font-medium disabled:text-gray-400"
                         >
@@ -442,6 +460,73 @@ const DocumentsList = () => {
           <p>Powered by DocManage &copy; 2025</p>
         </div>
       </div>
+
+      {selectedDocument && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75" onClick={closeImageModal}>
+          <div className="relative max-w-5xl w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={closeImageModal}
+              className="absolute -top-12 right-0 text-white hover:text-gray-300 text-4xl font-bold"
+            >
+              &times;
+            </button>
+            
+            <div className="bg-white rounded-lg p-6">
+              <div className="mb-4">
+                <h3 className="text-xl font-bold text-gray-800">Truck: {selectedDocument.truck_number}</h3>
+                <p className="text-sm text-gray-600">Date: {new Date(selectedDocument.date).toLocaleDateString()}</p>
+                <p className="text-sm text-gray-600">Image {currentImageIndex + 1} of {selectedDocument.images.length}</p>
+              </div>
+              
+              <div className="relative">
+                <img
+                  src={selectedDocument.images[currentImageIndex]?.image_url}
+                  alt={`Document ${currentImageIndex + 1}`}
+                  className="w-full h-auto max-h-[70vh] object-contain rounded-lg"
+                />
+                
+                {selectedDocument.images.length > 1 && (
+                  <>
+                    <button
+                      onClick={previousImage}
+                      disabled={currentImageIndex === 0}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white p-3 rounded-full hover:bg-opacity-75 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                      </svg>
+                    </button>
+                    
+                    <button
+                      onClick={nextImage}
+                      disabled={currentImageIndex === selectedDocument.images.length - 1}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 bg-black bg-opacity-50 text-white p-3 rounded-full hover:bg-opacity-75 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </>
+                )}
+              </div>
+              
+              <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
+                {selectedDocument.images.map((img, idx) => (
+                  <img
+                    key={idx}
+                    src={img.image_url}
+                    alt={`Thumbnail ${idx + 1}`}
+                    onClick={() => setCurrentImageIndex(idx)}
+                    className={`h-20 w-20 object-cover rounded cursor-pointer border-2 transition-all ${
+                      idx === currentImageIndex ? 'border-blue-600 scale-105' : 'border-gray-300 hover:border-blue-400'
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
