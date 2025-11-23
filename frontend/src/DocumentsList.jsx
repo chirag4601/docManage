@@ -113,14 +113,14 @@ const DocumentsList = () => {
   
   const loadNextPage = () => {
     if (pagination.next) {
-      const url = pagination.next.replace('http://localhost:8000/api', '');
+      const url = pagination.next.replace(`${apiUrl}api`, '');
       fetchDocuments(url);
     }
   };
   
   const loadPreviousPage = () => {
     if (pagination.previous) {
-      const url = pagination.previous.replace('http://localhost:8000/api', '');
+      const url = pagination.previous.replace(`${apiUrl}api`, '');
       fetchDocuments(url);
     }
   };
